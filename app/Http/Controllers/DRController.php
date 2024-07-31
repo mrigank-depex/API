@@ -14,7 +14,7 @@ use Spatie\Permission\Models\Role;
 class DRController extends Controller
 {
    
-    public function sendOTP(Request $request)
+    public function sendOTP1(Request $request)
     {
        // echo "hello";die();
     
@@ -34,7 +34,7 @@ class DRController extends Controller
             'otp' => $otp,
         ]);
     
-        return response()->json(['message' => 'OTP Sent Successfully.', 'OTP' => $otp,'status'=>'True']);
+        return response()->json(['status'=>'True','message' => 'OTP Sent Successfully.', 'OTP' => $otp]);
     }
     
     public function verifyOTP(Request $request)
@@ -58,70 +58,97 @@ class DRController extends Controller
     
 
             $token = $user->createToken('auth_token')->plainTextToken;
-            $request->session()->put('verifi_phone', $phone);
+            $request->session()->put('verified_phone', $phone);
             return response()->json([
-                'message' => 'OTP verified successfully.',
+                'status'=>'True','message' => 'OTP verified successfully.',
                 'access_token' => $token,
                 'token_type' => 'Bearer',
             ]);
         } else {
-            return response()->json(['message' => 'Invalid OTP.'], 401);
+            return response()->json(['status'=>'False','message' => 'Invalid OTP.'], 401);
         }
     }
+    public function page()
+    {
+        return view('page'); 
+    }
+    public function sendOTP11(){
+        echo "hello";die();
+        return view('page');
+    }
+
 
    
     public function register1(Request $request)
-    {
+    {  
         // Check if the phone number is verified
-        $phone = $request->session()->get('verifi_phone');
+        $phone = $request->session()->get('verified_phone');
         if (!$phone) {
-            return response()->json(['message' => 'Phone number not verified.'], 401);
+            return response()->json(['status'=>'False','message' => 'Phone number not verified.'], 401);
         }
-
-        // Validate the request
+    
+      //  Validate the request
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255',
             'address' => 'required|string|max:255',
         ]);
-
-        // Find the user by phone number
+       // echo "hello";die();
+        // Check if the user with the given phone number already exists
         $user = User::where('phone', $phone)->first();
-
-        if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
+    
+        if ($user) {
+            // Check if the name, email, and address fields are not empty for the existing user
+            if (!empty($user->name) && !empty($user->email) && !empty($user->address)) {
+                return response()->json(['status'=>'False','message' => 'Customer already registered.'], 409);
+            }
+    
+            // Check if the email already exists in the database
+            $emailExists = User::where('email', $validatedData['email'])->exists();
+            if ($emailExists) {
+                return response()->json(['status'=>'False','message' => 'Email already exists.'], 409);
+            }
+    
+            // Update the user details
+            $user->update([
+                'name' => $validatedData['name'],
+                'email' => $validatedData['email'],
+                'address' => $validatedData['address'],
+            ]);
+        } else {
+            return response()->json(['status'=>'False','message' => 'User not found.'], 404);
         }
-
-        // Update the user details
-        $user->update([
-            'name' => $validatedData['name'],
-            'email' => $validatedData['email'],
-            'address' => $validatedData['address'],
-        ]);
-
+    
         // Assign the 'customer' role
-        $role = Role::where('name', 'driver')->first();
-        $user->assignRole($role);
-        $user->role_id = $role->id; // Update the role_id in the users table
-        $user->save();
-
+        $role = Role::where('name', 'customer')->first();
+        if ($role) {
+            $user->assignRole($role);
+            $user->role_id = $role->id; // Update the role_id in the users table
+            $user->save();
+        } else {
+            return response()->json(['status'=>'False','message' => 'Role not found.'], 404);
+        }
+    
         // Generate an access token for the user
         $token = $user->createToken('auth_token')->plainTextToken;
-
+    
         // Remove the phone number from the session
         $request->session()->forget('verified_phone');
-
-        return response()->json([
+    
+        return response()->json(['status'=>'True',
             'message' => 'User registered successfully.',
             'user' => $user,
             'access_token' => $token,
             'token_type' => 'Bearer',
         ]);
     }
+    
 
     public function CountryCode()
     {
         $countryCodes = CountryCode::all();
         return response()->json($countryCodes);
     }
+
+   
 }
