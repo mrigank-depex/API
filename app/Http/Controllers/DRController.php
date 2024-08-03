@@ -120,7 +120,7 @@ class DRController extends Controller
         }
     
         // Assign the 'customer' role
-        $role = Role::where('name', 'customer')->first();
+        $role = Role::where('name', 'driver')->first();
         if ($role) {
             $user->assignRole($role);
             $user->role_id = $role->id; // Update the role_id in the users table
